@@ -137,5 +137,8 @@
 - **P2 已完成**（2026-05-19）：`analyst` 子 agent（profile + `JobPosting` → `MatchReport`：逐条评估 + 缺口 + 风险 + 结论）；未核实 JD 报告顶部强制警告（harness 规则，渲染代码保证、非靠提示）；`quiver analyze <slug>` 命令；29 测试通过（含 4 个 intake/analysis BDD 场景，全离线 fake runner）。
 - **P3-P7 已完成**（2026-05-19）：`reviewer` 事实核查门（artifact vs profile → 问题清单）、`github.repo_stars`（gh 实时取数）、`tailor`（对标简历）、`writer`（申请邮件）、`scout`（WebSearch 岗位发现）、`Pipeline`（intake→analyst→tailor→writer→review）；CLI 共 7 个命令；51 测试通过（含 6 个 BDD 场景，全离线 fake runner）。
 - **P8 已完成**（2026-05-20）：真实评测 harness —— `src/quiver/evaluation/`（8 个 golden 用例 + 纯打分函数 + `EvalRunner` 跑真实 agent）、`quiver eval` 命令（reviewer 查全/查准、intake 覆盖、analyst 校准；查全率 < 100% 即 exit 1；`--repeat N` 测一致性）；64 测试通过（含离线打分测试 + BDD）。`quiver eval --repeat 2` 实跑 **PASS 7/7**（reviewer 查全 3/3、查准 2/2，两轮均一致）。eval-driven 闭环已验证：实跑中先后发现 3 个真问题（intake fixture 缺公司、reviewer 过度标记 GitHub 数字、reviewer 对忠实改写误报），逐一修复后复跑通过。
+- **P9 已完成**（2026-05-20）：补齐强制门。`Pipeline` 现为真正的强制门——match-report / resume / email 三件产物逐一过 reviewer，任一被标记即抛 `PipelineGateError`、阻断下游、CLI 非零退出且不落盘（诚实产物才出厂）；match-report 此前漏过门，现已纳入。`verify_github` 升级为 SDK MCP 工具（`mcp__quiver__verify_github`）并接入 reviewer 的 `allowed_tools`，reviewer 系统提示要求对任何 GitHub star 数调用它实时核对。70 测试通过（新增"阻断门""工具装配"BDD 场景）。
+  - **SDK `PostToolUse(Write)` hook 经评估否决**：实现中六个子 agent 均不调用 `Write` 工具（服务返回 JSON、`ArtifactStore` 用 Python 落盘），hook 无触发面。hook 的"流程层强制"意图改由 `Pipeline` 编排层承载——这才是本架构真实的"流程层"。
+  - 顺带修复：`cli.py` 因 `load_dotenv()` 置于 import 之前导致 `ruff` E402 全红（`a90715a` 引入）；改为 `store.py` 构造时惰性读环境变量，`load_dotenv()` 移至 import 之后。
 - 鉴权：复用已登录的 Claude Code CLI，无需 API key。
-- **状态：P0-P8 全部完成。** 简化项：`verify_github`（gh 实时取数）作为独立可测工具就位，未接入 reviewer 作 MCP 工具——reviewer 只做"artifact vs profile"的诚实核查，数字的实时新鲜度核查是 `verify_github` 的独立职责。
+- **状态：P0-P9 全部完成。** 强制门（即 hook 的"流程层强制"意图）与 `verify_github` MCP 工具均已落地；计划原列的 SDK `Write` hook 经评估否决，理由见 P9。
