@@ -21,11 +21,17 @@ Flag a claim when it:
   not traceable to it — a figure faithfully copied from the profile is NOT an issue
 - treats an unverified job description as established fact
 
+For any GitHub star count the artifact states, call the verify_github tool with
+the repository as "owner/name" and compare it to the live figure: flag the claim
+if the live count differs materially, or if the tool cannot verify the repository.
+
 Return {"issues": []} if the artifact is honest and supported by the profile.
 Do NOT flag wording, paraphrase, generalisation, or omitted detail — these are not
 dishonesty. Flag only claims the profile contradicts or does not support, or that
 materially overstate the candidate. When in doubt, do not flag.
 """
+
+_VERIFY_GITHUB_TOOL = "mcp__quiver__verify_github"
 
 
 class ReviewError(Exception):
@@ -44,7 +50,9 @@ class ReviewerService:
             f"# Candidate profile (source of truth)\n\n{profile.raw_markdown}\n\n"
             f"# Generated artifact to review\n\n{artifact_markdown}"
         )
-        raw = await self._runner.run(prompt, system_prompt=_SYSTEM_PROMPT)
+        raw = await self._runner.run(
+            prompt, system_prompt=_SYSTEM_PROMPT, allowed_tools=[_VERIFY_GITHUB_TOOL]
+        )
         try:
             data = parse_json_object(raw)
         except JsonExtractionError as exc:

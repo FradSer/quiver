@@ -16,23 +16,27 @@ from quiver.domain.models import CandidateProfile, JobPosting
 _DEFAULT_KNOWLEDGE_DIR = Path.home() / "Documents" / "Work Research"
 _DEFAULT_PROFILE_FILENAME = "profile.md"
 
-KNOWLEDGE_DIR: Path = Path(os.environ.get("QUIVER_KNOWLEDGE_DIR", _DEFAULT_KNOWLEDGE_DIR))
-PROFILE_FILENAME: str = os.environ.get("QUIVER_PROFILE_FILENAME", _DEFAULT_PROFILE_FILENAME)
-
 
 class FileSystemArtifactStore:
     """Reads the profile and writes artifacts under the knowledge directory.
 
-    Implements the ArtifactStore port.
+    Implements the ArtifactStore port. The knowledge directory and profile
+    filename are resolved at construction time: an explicit argument wins,
+    otherwise the environment variable, otherwise the default.
     """
 
     def __init__(
         self,
-        knowledge_dir: Path = KNOWLEDGE_DIR,
-        profile_filename: str = PROFILE_FILENAME,
+        knowledge_dir: Path | None = None,
+        profile_filename: str | None = None,
     ) -> None:
-        self._dir = knowledge_dir
-        self._profile_filename = profile_filename
+        env_dir = os.environ.get("QUIVER_KNOWLEDGE_DIR")
+        self._dir = knowledge_dir or (Path(env_dir) if env_dir else _DEFAULT_KNOWLEDGE_DIR)
+        self._profile_filename = (
+            profile_filename
+            or os.environ.get("QUIVER_PROFILE_FILENAME")
+            or _DEFAULT_PROFILE_FILENAME
+        )
 
     def load_profile(self) -> CandidateProfile:
         """Load the candidate profile from the configured profile file."""

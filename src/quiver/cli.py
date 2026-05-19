@@ -6,16 +6,13 @@ import asyncio
 import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
 import typer
+from dotenv import load_dotenv
 
 from quiver import __version__
 from quiver.application.analyst import AnalysisError, AnalystService
 from quiver.application.intake import IntakeService, JdUnavailableError
-from quiver.application.pipeline import Pipeline
+from quiver.application.pipeline import Pipeline, PipelineGateError
 from quiver.application.reviewer import ReviewError, ReviewerService
 from quiver.application.scout import ScoutService
 from quiver.application.tailor import TailorError, TailorService
@@ -24,6 +21,9 @@ from quiver.domain.models import MatchRating, ReviewResult, leads_to_markdown
 from quiver.evaluation.runner import EvalRunner
 from quiver.infrastructure.sdk_runner import ClaudeAgentRunner
 from quiver.infrastructure.store import FileSystemArtifactStore
+
+# Load .env before any command resolves env-configured paths.
+load_dotenv()
 
 app = typer.Typer(
     help="Quiver — a job-search harness agent built on the Claude Agent SDK.",
@@ -209,7 +209,7 @@ def scout() -> None:
 def run(
     text: str | None = typer.Argument(None, help="Job description text. Omit to read stdin."),
 ) -> None:
-    """Run the full pipeline: intake -> analyze -> tailor -> email, reviewing both outputs."""
+    """Run the full pipeline: intake -> analyze -> tailor -> email, gated by the reviewer."""
     store = FileSystemArtifactStore()
     runner = ClaudeAgentRunner()
     pipeline = Pipeline(
@@ -221,6 +221,12 @@ def run(
     )
     try:
         result = asyncio.run(pipeline.run(_read_jd(text), store.load_profile()))
+    except PipelineGateError as exc:
+        typer.echo(f"run BLOCKED — {exc.stage} gate flagged honesty issues", err=True)
+        for name, review in exc.reviews:
+            _echo_review(name, review)
+        typer.echo("No artifacts written. Fix the profile or inputs, then re-run.", err=True)
+        raise typer.Exit(code=1) from exc
     except (JdUnavailableError, AnalysisError, TailorError, WriterError, ReviewError) as exc:
         typer.echo(f"pipeline failed: {exc}", err=True)
         raise typer.Exit(code=1) from exc
@@ -229,12 +235,12 @@ def run(
     store.write_artifact(slug, "match-report.md", result.report.to_markdown())
     store.write_artifact(slug, "resume.md", result.resume.markdown)
     store.write_artifact(slug, "email.md", result.email.to_markdown())
+    store.write_artifact(slug, "match-report.review.md", result.report_review.to_markdown())
     store.write_artifact(slug, "resume.review.md", result.resume_review.to_markdown())
     store.write_artifact(slug, "email.review.md", result.email_review.to_markdown())
     typer.echo(f"run OK — {result.posting.company} / {result.posting.title}")
     typer.echo(f"  artifacts: jobs/{slug}/ (jd, match-report, resume, email, + reviews)")
-    _echo_review("resume", result.resume_review)
-    _echo_review("email", result.email_review)
+    typer.echo("  all three review gates passed — clean")
 
 
 @app.command(name="eval")

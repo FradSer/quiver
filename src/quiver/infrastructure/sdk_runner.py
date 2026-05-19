@@ -6,7 +6,15 @@ the CLI headlessly and reuses its session. No API key required.
 
 from __future__ import annotations
 
-from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, TextBlock, query
+from claude_agent_sdk import (
+    AssistantMessage,
+    ClaudeAgentOptions,
+    McpServerConfig,
+    TextBlock,
+    query,
+)
+
+from quiver.infrastructure.tools import quiver_mcp_server
 
 
 class ClaudeAgentRunner:
@@ -14,6 +22,7 @@ class ClaudeAgentRunner:
 
     def __init__(self, *, model: str | None = None) -> None:
         self._model = model
+        self._mcp_servers: dict[str, McpServerConfig] = {"quiver": quiver_mcp_server()}
 
     async def run(
         self,
@@ -22,11 +31,16 @@ class ClaudeAgentRunner:
         system_prompt: str | None = None,
         allowed_tools: list[str] | None = None,
     ) -> str:
-        """Execute `prompt` and return the concatenated assistant text."""
+        """Execute `prompt` and return the concatenated assistant text.
+
+        Quiver's MCP tools are always registered; `allowed_tools` controls which
+        of them, if any, a given agent may call.
+        """
         options = ClaudeAgentOptions(
             system_prompt=system_prompt,
             model=self._model,
             allowed_tools=allowed_tools or [],
+            mcp_servers=self._mcp_servers,
         )
         chunks: list[str] = []
         async for message in query(prompt=prompt, options=options):
