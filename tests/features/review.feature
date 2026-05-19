@@ -10,3 +10,8 @@ Feature: Artifact fact-check
     Given a reviewer that finds nothing wrong
     When I review an artifact
     Then the review is clean
+
+  Scenario: The reviewer can verify GitHub numbers against the live repository
+    Given a reviewer that finds nothing wrong
+    When I review an artifact
+    Then the reviewer is equipped with the verify_github tool

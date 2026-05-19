@@ -18,19 +18,19 @@ _FLAG = json.dumps({"issues": [{"claim": "核心维护者", "problem": "profile 
 _CLEAN = json.dumps({"issues": []})
 
 
-@given("a reviewer that finds an overclaim", target_fixture="reviewer")
-def _reviewer_flags() -> ReviewerService:
-    return ReviewerService(FakeAgentRunner(_FLAG))
+@given("a reviewer that finds an overclaim", target_fixture="runner")
+def _runner_flags() -> FakeAgentRunner:
+    return FakeAgentRunner(_FLAG)
 
 
-@given("a reviewer that finds nothing wrong", target_fixture="reviewer")
-def _reviewer_clean() -> ReviewerService:
-    return ReviewerService(FakeAgentRunner(_CLEAN))
+@given("a reviewer that finds nothing wrong", target_fixture="runner")
+def _runner_clean() -> FakeAgentRunner:
+    return FakeAgentRunner(_CLEAN)
 
 
 @when("I review an artifact", target_fixture="result")
-def _review(reviewer: ReviewerService) -> ReviewResult:
-    return asyncio.run(reviewer.review(_PROFILE, "# Résumé\n\nOpenClaw 核心维护者"))
+def _review(runner: FakeAgentRunner) -> ReviewResult:
+    return asyncio.run(ReviewerService(runner).review(_PROFILE, "# Résumé\n\nOpenClaw 核心维护者"))
 
 
 @then("the review is not clean and names the issue")
@@ -42,3 +42,9 @@ def _flagged(result: ReviewResult) -> None:
 @then("the review is clean")
 def _clean(result: ReviewResult) -> None:
     assert result.is_clean
+
+
+@then("the reviewer is equipped with the verify_github tool")
+def _equipped(runner: FakeAgentRunner, result: ReviewResult) -> None:
+    assert runner.last_allowed_tools is not None
+    assert any("verify_github" in tool for tool in runner.last_allowed_tools)

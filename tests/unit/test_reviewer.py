@@ -29,3 +29,10 @@ def test_review_passes_an_honest_artifact() -> None:
 def test_review_rejects_non_json() -> None:
     with pytest.raises(ReviewError):
         asyncio.run(ReviewerService(FakeAgentRunner("not json")).review(_PROFILE, "# x"))
+
+
+def test_review_equips_the_verify_github_tool() -> None:
+    runner = FakeAgentRunner(json.dumps({"issues": []}))
+    asyncio.run(ReviewerService(runner).review(_PROFILE, "# x"))
+    assert runner.last_allowed_tools is not None
+    assert any("verify_github" in tool for tool in runner.last_allowed_tools)
