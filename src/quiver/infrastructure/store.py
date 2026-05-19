@@ -1,18 +1,23 @@
 """Filesystem artifact store — Quiver's knowledge base and output area.
 
-`~/Documents/Work Research/` holds `frad-lee-profile.md` (the read-only source
-of truth) and generated artifacts under `jobs/<slug>/`.
+Reads the knowledge directory and profile filename from environment variables
+(`QUIVER_KNOWLEDGE_DIR`, `QUIVER_PROFILE_FILENAME`) with sensible defaults.
+Generated artifacts live under `jobs/<slug>/` inside the knowledge directory.
 """
 
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from quiver.domain.models import CandidateProfile, JobPosting
 
-KNOWLEDGE_DIR: Path = Path.home() / "Documents" / "Work Research"
-PROFILE_FILENAME = "frad-lee-profile.md"
+_DEFAULT_KNOWLEDGE_DIR = Path.home() / "Documents" / "Work Research"
+_DEFAULT_PROFILE_FILENAME = "profile.md"
+
+KNOWLEDGE_DIR: Path = Path(os.environ.get("QUIVER_KNOWLEDGE_DIR", _DEFAULT_KNOWLEDGE_DIR))
+PROFILE_FILENAME: str = os.environ.get("QUIVER_PROFILE_FILENAME", _DEFAULT_PROFILE_FILENAME)
 
 
 class FileSystemArtifactStore:
@@ -21,12 +26,17 @@ class FileSystemArtifactStore:
     Implements the ArtifactStore port.
     """
 
-    def __init__(self, knowledge_dir: Path = KNOWLEDGE_DIR) -> None:
+    def __init__(
+        self,
+        knowledge_dir: Path = KNOWLEDGE_DIR,
+        profile_filename: str = PROFILE_FILENAME,
+    ) -> None:
         self._dir = knowledge_dir
+        self._profile_filename = profile_filename
 
     def load_profile(self) -> CandidateProfile:
-        """Load the candidate profile from `frad-lee-profile.md`."""
-        path = self._dir / PROFILE_FILENAME
+        """Load the candidate profile from the configured profile file."""
+        path = self._dir / self._profile_filename
         return CandidateProfile(raw_markdown=path.read_text(encoding="utf-8"), source=path)
 
     def load_job_posting(self, slug: str) -> JobPosting:

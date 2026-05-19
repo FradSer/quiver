@@ -7,10 +7,17 @@ from quiver.infrastructure.store import FileSystemArtifactStore
 
 
 def test_load_profile_reads_markdown(tmp_path: Path) -> None:
-    (tmp_path / "frad-lee-profile.md").write_text("# Frad LEE\n\nhello", encoding="utf-8")
+    (tmp_path / "profile.md").write_text("# Frad LEE\n\nhello", encoding="utf-8")
     profile = FileSystemArtifactStore(tmp_path).load_profile()
     assert profile.name == "Frad LEE"
     assert "hello" in profile.raw_markdown
+
+
+def test_load_profile_respects_custom_filename(tmp_path: Path) -> None:
+    (tmp_path / "custom.md").write_text("# Custom\n\nworld", encoding="utf-8")
+    profile = FileSystemArtifactStore(tmp_path, profile_filename="custom.md").load_profile()
+    assert profile.name == "Custom"
+    assert "world" in profile.raw_markdown
 
 
 def test_job_posting_round_trips_through_the_store(tmp_path: Path) -> None:
