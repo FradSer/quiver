@@ -1,3 +1,11 @@
 scopes:
-    - name: src
-      description: Core application logic and business services within src/; does not cover test suites or build documentation
+    - name: app
+      description: application logic, agents, and pipeline orchestration in src/quiver/application/; does not cover infrastructure adapters or domain models
+    - name: domain
+      description: core business models and port definitions in src/quiver/domain/; does not cover application services or infrastructure
+    - name: eval
+      description: evaluation frameworks, scoring, and analysis runner logic in src/quiver/evaluation/; does not cover application agents
+    - name: infra
+      description: external integrations, storage, and tool adapters in src/quiver/infrastructure/; does not cover CLI entry points
+    - name: cli
+      description: command-line interface and entry points in src/quiver/cli.py; does not cover internal logic
