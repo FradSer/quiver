@@ -1,0 +1,33 @@
+# Candidate Profile: Alex Rivera
+
+## Core Facts
+- **Name**: Alex Rivera
+- **Location**: San Francisco, CA (Remote Friendly)
+- **Role**: Senior Software Engineer / Technical Lead
+- **Experience**: 8+ years in Full-stack Development & Distributed Systems
+
+## Key Achievements
+- **StarCount (GitHub)**: 1,200+ stars across open-source projects including `fast-api-harness`.
+- **System Scale**: Designed and scaled a real-time data pipeline processing 50k events/sec using Kafka and Go.
+- **Team Leadership**: Led a team of 6 engineers to migrate a legacy monolith to microservices, reducing deployment time by 70%.
+
+## Skills
+- **Languages**: Python (Expert), Go (Proficient), TypeScript (Proficient), SQL.
+- **Frameworks**: FastAPI, React, Pytest, SQLAlchemy.
+- **Infrastructure**: AWS (EC2, S3, RDS), Docker, Kubernetes, Terraform.
+- **AI/ML**: Integration of LLMs into production workflows, RAG, Prompt Engineering.
+
+## Employment History
+### Senior Software Engineer @ TechFlow (2020 - Present)
+- Developed a high-performance backend for a B2B SaaS platform using Python 3.12 and FastAPI.
+- Reduced database latency by 40% through query optimization and caching strategies.
+
+### Software Engineer @ DataScale (2017 - 2020)
+- Built internal tools for data visualization and reporting.
+- Spearheaded the adoption of BDD testing using Pytest-BDD.
+
+## Education
+- **B.S. in Computer Science**, Stanford University (2016)
+
+---
+*Note: This is a sample profile for Quiver. Keep your profile honest and data-rich.*

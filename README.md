@@ -27,6 +27,27 @@ Quiver authenticates through your logged-in Claude Code CLI — no API key neede
 
 To use a direct Anthropic API key instead, copy `.env.example` to `.env` and set `ANTHROPIC_API_KEY`.
 
+## Quick Start
+
+1. **Install dependencies**:
+   ```bash
+   uv sync
+   ```
+2. **Setup environment**:
+   ```bash
+   cp .env.example .env
+   # Edit .env to set QUIVER_KNOWLEDGE_DIR if needed
+   ```
+3. **Create your profile**:
+   ```bash
+   cp profile.md.example ~/Documents/Work\ Research/profile.md
+   # Edit with your actual details
+   ```
+4. **Run a full pipeline**:
+   ```bash
+   quiver run "https://example.com/job-posting"
+   ```
+
 ## Configuration
 
 All paths and personal information are configurable via `.env`:
@@ -59,6 +80,29 @@ quiver eval               # run golden-case evaluation (live calls)
 ## Architecture
 
 Clean Architecture, four layers with dependencies pointing inward:
+
+```mermaid
+graph TD
+    subgraph Infrastructure
+        Runner[Claude SDK Runner]
+        Store[FS Artifact Store]
+        Tools[GitHub/Web Tools]
+    end
+    
+    subgraph Application
+        Pipe[Pipeline]
+        Services[Intake/Analyst/Reviewer/Tailor/Writer]
+    end
+    
+    subgraph Domain
+        Models[JobPosting/MatchReport]
+        Ports[AgentRunner Port / ArtifactStore Port]
+    end
+    
+    CLI[cli.py] --> Application
+    Application --> Domain
+    Infrastructure -.-> Ports
+```
 
 ```
 domain/          pure value objects and interfaces — zero external imports
