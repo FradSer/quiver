@@ -11,7 +11,7 @@ Feature: Artifact fact-check
     When I review an artifact
     Then the review is clean
 
-  Scenario: The reviewer can verify GitHub numbers against the live repository
+  Scenario: The reviewer can verify GitHub repositories against the live record
     Given a reviewer that finds nothing wrong
     When I review an artifact
     Then the reviewer is equipped with the verify_github tool

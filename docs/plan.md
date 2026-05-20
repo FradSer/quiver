@@ -140,5 +140,7 @@
 - **P9 已完成**（2026-05-20）：补齐强制门。`Pipeline` 现为真正的强制门——match-report / resume / email 三件产物逐一过 reviewer，任一被标记即抛 `PipelineGateError`、阻断下游、CLI 非零退出且不落盘（诚实产物才出厂）；match-report 此前漏过门，现已纳入。`verify_github` 升级为 SDK MCP 工具（`mcp__quiver__verify_github`）并接入 reviewer 的 `allowed_tools`，reviewer 系统提示要求对任何 GitHub star 数调用它实时核对。70 测试通过（新增"阻断门""工具装配"BDD 场景）。
   - **SDK `PostToolUse(Write)` hook 经评估否决**：实现中六个子 agent 均不调用 `Write` 工具（服务返回 JSON、`ArtifactStore` 用 Python 落盘），hook 无触发面。hook 的"流程层强制"意图改由 `Pipeline` 编排层承载——这才是本架构真实的"流程层"。
   - 顺带修复：`cli.py` 因 `load_dotenv()` 置于 import 之前导致 `ruff` E402 全红（`a90715a` 引入）；改为 `store.py` 构造时惰性读环境变量，`load_dotenv()` 移至 import 之后。
+- **P10 已完成**（2026-05-20）：`verify_github` 从"只查 star 数"扩展为仓库溯源核查——`github.py` 改为 `fetch_repo_facts` / `RepoFacts`，经 `gh api` 取 star 数 + fork 状态 + 上游仓库；MCP 工具的回写文本在检出 fork 时附"这是 fork、非原创、凡认领为自有项目即应标记"；reviewer 系统提示新增"被认领为原创、实为他人项目 fork 的仓库"一条 flag 规则。这补齐了第 64 行护栏表原列的"star/fork"中此前缺失的 fork 维度。72 测试通过；实跑验证：`FradSer/superpowers` 正确识别为 `obra/superpowers`（198k★）的 fork。
+  - 触发来源：本次会话为本项目撰写的 DeepSeek 申请邮件，一度把 `obra/superpowers`（第三方框架）误述为候选人自有设计——正是"把踩过的坑编码成护栏"的又一例。
 - 鉴权：复用已登录的 Claude Code CLI，无需 API key。
-- **状态：P0-P9 全部完成。** 强制门（即 hook 的"流程层强制"意图）与 `verify_github` MCP 工具均已落地；计划原列的 SDK `Write` hook 经评估否决，理由见 P9。
+- **状态：P0-P10 全部完成。** 强制门（hook 的"流程层强制"意图）+ `verify_github` MCP 工具（star 数 + fork 溯源）均已落地；计划原列的 SDK `Write` hook 经评估否决，理由见 P9。

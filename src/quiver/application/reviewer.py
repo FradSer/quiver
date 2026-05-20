@@ -21,9 +21,13 @@ Flag a claim when it:
   not traceable to it — a figure faithfully copied from the profile is NOT an issue
 - treats an unverified job description as established fact
 
-For any GitHub star count the artifact states, call the verify_github tool with
-the repository as "owner/name" and compare it to the live figure: flag the claim
-if the live count differs materially, or if the tool cannot verify the repository.
+The verify_github tool looks up a GitHub repository's live star count and fork
+status. Call it (repo as "owner/name") for any GitHub repository the artifact
+mentions, and flag the claim when:
+- the live star count differs materially from the figure the artifact states
+- the tool reports the repository is a FORK, yet the artifact presents it as the
+  candidate's own project or original work
+- the tool cannot verify a repository the artifact makes a factual claim about
 
 Return {"issues": []} if the artifact is honest and supported by the profile.
 Do NOT flag wording, paraphrase, generalisation, or omitted detail — these are not
