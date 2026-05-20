@@ -44,7 +44,7 @@ def format_repo_facts(repo: str, facts: RepoFacts | None) -> str:
 )
 async def _verify_github(args: dict[str, Any]) -> dict[str, Any]:
     repo = str(args.get("repo", "")).strip()
-    facts = await asyncio.to_thread(fetch_repo_facts, repo)
+    facts = await fetch_repo_facts(repo)
     return {"content": [{"type": "text", "text": format_repo_facts(repo, facts)}]}
 
 

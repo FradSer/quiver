@@ -8,8 +8,8 @@ forked framework must not be claimed as the candidate's own work.
 
 from __future__ import annotations
 
+import asyncio
 import json
-import subprocess
 from dataclasses import dataclass
 
 
@@ -40,16 +40,44 @@ def parse_repo_facts(repo: str, stdout: str) -> RepoFacts | None:
     )
 
 
-def fetch_repo_facts(repo: str) -> RepoFacts | None:
+async def fetch_repo_facts(repo: str) -> RepoFacts | None:
     """Return live facts for `owner/name`, or None if they cannot be fetched."""
-    try:
-        result = subprocess.run(
-            ["gh", "api", f"repos/{repo}"],
-            capture_output=True,
-            text=True,
-            timeout=20,
-            check=True,
-        )
-    except (subprocess.SubprocessError, OSError):
+    # Simple validation to prevent flag injection or malformed requests
+    if "/" not in repo or repo.startswith("-"):
         return None
-    return parse_repo_facts(repo, result.stdout)
+
+    # Check if gh is installed
+    try:
+        check_proc = await asyncio.create_subprocess_exec(
+            "gh", "--version", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+        )
+        await check_proc.communicate()
+        if check_proc.returncode != 0:
+            return None
+    except OSError:
+        return None
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "gh",
+            "api",
+            f"repos/{repo}",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=20)
+        except asyncio.TimeoutError:
+            try:
+                proc.kill()
+            except ProcessLookupError:
+                pass
+            return None
+
+        if proc.returncode != 0:
+            return None
+
+    except (OSError, ValueError):
+        return None
+
+    return parse_repo_facts(repo, stdout.decode())

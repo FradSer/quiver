@@ -14,10 +14,11 @@ from claude_agent_sdk import (
     query,
 )
 
+from quiver.domain.ports import AgentRunner, Capabilities
 from quiver.infrastructure.tools import quiver_mcp_server
 
 
-class ClaudeAgentRunner:
+class ClaudeAgentRunner(AgentRunner):
     """Runs prompts through the Claude Agent SDK. Implements the AgentRunner port."""
 
     def __init__(self, *, model: str | None = None) -> None:
@@ -34,12 +35,25 @@ class ClaudeAgentRunner:
         """Execute `prompt` and return the concatenated assistant text.
 
         Quiver's MCP tools are always registered; `allowed_tools` controls which
-        of them, if any, a given agent may call.
+        of them, if any, a given agent may call. Capability names are mapped to
+        SDK-specific tool names.
         """
+        mapped_tools: list[str] = []
+        if allowed_tools:
+            for tool in allowed_tools:
+                if tool == Capabilities.VERIFY_GITHUB:
+                    mapped_tools.append("mcp__quiver__verify_github")
+                elif tool == Capabilities.WEB_SEARCH:
+                    mapped_tools.append("WebSearch")
+                elif tool == Capabilities.WEB_FETCH:
+                    mapped_tools.append("WebFetch")
+                else:
+                    mapped_tools.append(tool)
+
         options = ClaudeAgentOptions(
             system_prompt=system_prompt,
             model=self._model,
-            allowed_tools=allowed_tools or [],
+            allowed_tools=mapped_tools,
             mcp_servers=self._mcp_servers,
         )
         chunks: list[str] = []
