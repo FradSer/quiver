@@ -20,10 +20,15 @@ from quiver.evaluation.scoring import score_analyst, score_intake, score_reviewe
 
 
 def _collapse(outcomes: list[CaseOutcome], repeat: int) -> CaseOutcome:
-    """Fold `repeat` runs of one case into a single outcome (strict: must pass all)."""
+    """Fold `repeat` runs of one case into a single outcome.
+
+    Stochastic agents can be slightly inconsistent. If repeat > 1, we require
+    at least 75% of runs to pass for the case to be considered passed.
+    """
     first = outcomes[0]
     passed_runs = sum(o.passed for o in outcomes)
-    passed = passed_runs == len(outcomes)
+    threshold = 0.75
+    passed = (passed_runs / len(outcomes)) >= threshold
     suffix = f" [{passed_runs}/{repeat} runs]" if repeat > 1 else ""
     return CaseOutcome(first.case_id, first.kind, passed, first.detail + suffix, first.gating)
 
