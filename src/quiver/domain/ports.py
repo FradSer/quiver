@@ -12,6 +12,14 @@ from typing import Protocol
 from quiver.domain.models import CandidateProfile, JobPosting
 
 
+class Capabilities:
+    """Abstract tool names the application layer can request."""
+
+    VERIFY_GITHUB = "quiver:verify_github"
+    WEB_SEARCH = "builtin:web_search"
+    WEB_FETCH = "builtin:web_fetch"
+
+
 class AgentRunner(Protocol):
     """Runs a prompt through an agent and returns its final text output."""
 

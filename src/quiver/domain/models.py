@@ -202,6 +202,34 @@ class MatchReport:
         lines += ["", "## 结论", "", self.verdict, ""]
         return "\n".join(lines)
 
+    @classmethod
+    def from_markdown(cls, md: str, posting: JobPosting) -> MatchReport:
+        """Best-effort parse of a match report back from Markdown."""
+        assessments: list[RequirementAssessment] = []
+        gaps: list[str] = []
+        risks: list[str] = []
+        verdict = ""
+
+        sections = re.split(r"\n## ", md)
+        for section in sections:
+            if section.startswith("逐条评估"):
+                # Simple table parser
+                for line in section.splitlines():
+                    if "|" in line and "评级" not in line and "---" not in line:
+                        parts = [p.strip() for p in line.split("|") if p.strip()]
+                        if len(parts) >= 3:
+                            rating_map = {"强": MatchRating.STRONG, "部分": MatchRating.PARTIAL, "缺口": MatchRating.GAP}
+                            rating = rating_map.get(parts[1], MatchRating.PARTIAL)
+                            assessments.append(RequirementAssessment(parts[0], rating, parts[2]))
+            elif section.startswith("缺口"):
+                gaps = [l[2:].strip() for l in section.splitlines() if l.startswith("- ") and "无明显缺口" not in l]
+            elif section.startswith("风险"):
+                risks = [l[2:].strip() for l in section.splitlines() if l.startswith("- ") and "无明显风险" not in l]
+            elif section.startswith("结论"):
+                verdict = "\n".join(l.strip() for l in section.splitlines()[1:] if l.strip())
+
+        return cls(posting, tuple(assessments), tuple(gaps), tuple(risks), verdict)
+
 
 @dataclass(frozen=True, slots=True)
 class ReviewIssue:
@@ -253,6 +281,19 @@ class EmailDraft:
             f"# 申请邮件：{self.posting.company} / {self.posting.title}\n\n"
             f"**主题**：{self.subject}\n\n---\n\n{self.body}\n"
         )
+
+    @classmethod
+    def from_markdown(cls, md: str, posting: JobPosting) -> EmailDraft:
+        """Best-effort parse of an email draft back from Markdown."""
+        subject = ""
+        body = ""
+        match = re.search(r"\*\*主题\*\*：(.*)", md)
+        if match:
+            subject = match.group(1).strip()
+        parts = md.split("---\n\n")
+        if len(parts) >= 2:
+            body = parts[1].strip()
+        return cls(posting, subject, body)
 
 
 def leads_to_markdown(leads: tuple[JobLead, ...]) -> str:
