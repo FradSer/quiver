@@ -22,6 +22,21 @@ from quiver.evaluation.runner import EvalRunner
 from quiver.infrastructure.sdk_runner import ClaudeAgentRunner
 from quiver.infrastructure.store import FileSystemArtifactStore
 
+from rich.console import Console
+from rich.status import Status
+from rich.panel import Panel
+from rich.theme import Theme
+
+# Custom theme for Quiver
+theme = Theme({
+    "info": "cyan",
+    "warning": "yellow",
+    "error": "red bold",
+    "success": "green bold",
+    "highlight": "magenta",
+})
+console = Console(theme=theme)
+
 # Load .env before any command resolves env-configured paths.
 load_dotenv()
 
@@ -46,8 +61,29 @@ def _root(
         is_eager=True,
         help="Show the Quiver version and exit.",
     ),
+    knowledge_dir: Path = typer.Option(
+        None,
+        "--dir",
+        envvar="QUIVER_KNOWLEDGE_DIR",
+        help="Knowledge base directory (overrides .env).",
+        dir_okay=True,
+        file_okay=False,
+    ),
+    profile_file: str = typer.Option(
+        None,
+        "--profile",
+        envvar="QUIVER_PROFILE_FILENAME",
+        help="Profile filename inside knowledge directory (overrides .env).",
+    ),
 ) -> None:
     """Quiver — a job-search harness agent."""
+    # Ensure any passed-in options are set in the environment so services can pick them up
+    if knowledge_dir:
+        import os
+        os.environ["QUIVER_KNOWLEDGE_DIR"] = str(knowledge_dir)
+    if profile_file:
+        import os
+        os.environ["QUIVER_PROFILE_FILENAME"] = profile_file
 
 
 def _read_jd(text: str | None) -> str:
@@ -92,15 +128,21 @@ def intake(
     service = IntakeService(ClaudeAgentRunner())
     store = FileSystemArtifactStore()
     try:
-        posting = asyncio.run(service.from_url(url) if url else service.from_text(_read_jd(text)))
+        with console.status("[bold blue]Intaking job description...") as status:
+            posting = asyncio.run(service.from_url(url) if url else service.from_text(_read_jd(text)))
     except JdUnavailableError as exc:
-        typer.echo(f"intake failed: {exc}", err=True)
-        typer.echo("Tip: paste the JD text directly — job boards are often JS apps.", err=True)
+        console.print(f"[error]intake failed:[/error] {exc}")
+        console.print("[info]Tip: paste the JD text directly — job boards are often JS apps.[/info]")
         raise typer.Exit(code=1) from exc
     path = store.save_job_posting(posting)
-    typer.echo(f"intake OK — {posting.company} / {posting.title}")
-    typer.echo(f"  verification: {posting.verification_status.value}")
-    typer.echo(f"  written: {path}")
+    console.print(Panel(
+        f"[success]intake OK[/success] — {posting.company} / {posting.title}\n"
+        f"  [info]verification:[/info] {posting.verification_status.value}\n"
+        f"  [info]written:[/info] {path}",
+        title="Intake Complete",
+        expand=False
+    ))
+    console.print(f"\n[bold]Next step:[/bold] `quiver analyze {posting.slug}`")
 
 
 @app.command()
@@ -108,23 +150,32 @@ def analyze(
     slug: str = typer.Argument(..., help="Slug of an intaken job (jobs/<slug>/)."),
 ) -> None:
     """Analyze the candidate against an intaken job; write match-report.md."""
+    if ".." in slug or "/" in slug:
+        console.print(f"[error]Invalid slug:[/error] {slug}", err=True)
+        raise typer.Exit(code=1)
     store = FileSystemArtifactStore()
     try:
         posting = store.load_job_posting(slug)
     except FileNotFoundError as exc:
-        typer.echo(f"no intaken job at slug '{slug}' — run `quiver intake` first", err=True)
+        console.print(f"[error]no intaken job at slug '{slug}'[/error] — run `quiver intake` first", err=True)
         raise typer.Exit(code=1) from exc
     profile = store.load_profile()
     try:
-        report = asyncio.run(AnalystService(ClaudeAgentRunner()).analyze(profile, posting))
+        with console.status(f"[bold blue]Analyzing match for {posting.company}...") as status:
+            report = asyncio.run(AnalystService(ClaudeAgentRunner()).analyze(profile, posting))
     except AnalysisError as exc:
-        typer.echo(f"analysis failed: {exc}", err=True)
+        console.print(f"[error]analysis failed:[/error] {exc}", err=True)
         raise typer.Exit(code=1) from exc
     path = store.write_artifact(slug, "match-report.md", report.to_markdown())
     strong = sum(1 for a in report.assessments if a.rating is MatchRating.STRONG)
-    typer.echo(f"analyze OK — {posting.company} / {posting.title}")
-    typer.echo(f"  {len(report.assessments)} requirements assessed, {strong} rated strong")
-    typer.echo(f"  written: {path}")
+    console.print(Panel(
+        f"[success]analyze OK[/success] — {posting.company} / {posting.title}\n"
+        f"  [info]{len(report.assessments)}[/info] requirements assessed, [success]{strong}[/success] rated strong\n"
+        f"  [info]written:[/info] {path}",
+        title="Analysis Complete",
+        expand=False
+    ))
+    console.print(f"\n[bold]Next step:[/bold] `quiver tailor {slug}` OR `quiver email {slug}`")
 
 
 @app.command()
@@ -208,6 +259,7 @@ def scout() -> None:
 @app.command()
 def run(
     text: str | None = typer.Argument(None, help="Job description text. Omit to read stdin."),
+    url: str | None = typer.Option(None, "--url", help="Fetch the JD from this URL."),
 ) -> None:
     """Run the full pipeline: intake -> analyze -> tailor -> email, gated by the reviewer."""
     store = FileSystemArtifactStore()
@@ -220,15 +272,22 @@ def run(
         reviewer=ReviewerService(runner),
     )
     try:
-        result = asyncio.run(pipeline.run(_read_jd(text), store.load_profile()))
+        with console.status("[bold blue]Running full pipeline (this may take a minute)...") as status:
+            if url:
+                # Intake happens first to get the JD
+                intake_service = IntakeService(runner)
+                posting = asyncio.run(intake_service.from_url(url))
+                result = asyncio.run(pipeline.run_with_posting(posting, store.load_profile(), store=store))
+            else:
+                result = asyncio.run(pipeline.run(_read_jd(text), store.load_profile(), store=store))
     except PipelineGateError as exc:
-        typer.echo(f"run BLOCKED — {exc.stage} gate flagged honesty issues", err=True)
+        console.print(f"[error]run BLOCKED[/error] — {exc.stage} gate flagged honesty issues", err=True)
         for name, review in exc.reviews:
             _echo_review(name, review)
-        typer.echo("No artifacts written. Fix the profile or inputs, then re-run.", err=True)
+        console.print("\n[warning]No artifacts written. Fix the profile or inputs, then re-run.[/warning]", err=True)
         raise typer.Exit(code=1) from exc
     except (JdUnavailableError, AnalysisError, TailorError, WriterError, ReviewError) as exc:
-        typer.echo(f"pipeline failed: {exc}", err=True)
+        console.print(f"[error]pipeline failed:[/error] {exc}", err=True)
         raise typer.Exit(code=1) from exc
     slug = result.posting.slug
     store.save_job_posting(result.posting)
@@ -238,9 +297,13 @@ def run(
     store.write_artifact(slug, "match-report.review.md", result.report_review.to_markdown())
     store.write_artifact(slug, "resume.review.md", result.resume_review.to_markdown())
     store.write_artifact(slug, "email.review.md", result.email_review.to_markdown())
-    typer.echo(f"run OK — {result.posting.company} / {result.posting.title}")
-    typer.echo(f"  artifacts: jobs/{slug}/ (jd, match-report, resume, email, + reviews)")
-    typer.echo("  all three review gates passed — clean")
+    console.print(Panel(
+        f"[success]run OK[/success] — {result.posting.company} / {result.posting.title}\n"
+        f"  [info]artifacts:[/info] jobs/{slug}/ (jd, match-report, resume, email, + reviews)\n"
+        f"  [success]all three review gates passed — clean[/success]",
+        title="Pipeline Complete",
+        expand=False
+    ))
 
 
 @app.command(name="eval")
